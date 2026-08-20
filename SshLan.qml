@@ -24,8 +24,6 @@ Panel {
     property bool cursorActive: false
     property string scanError: ""
     property string pingError: ""
-    property string savingHost: ""
-    property var pendingHostSettings: null
     property bool hostEditorOpen: false
     property string editingHost: ""
     property bool settingsOpen: false
@@ -43,7 +41,6 @@ Panel {
     readonly property string scanScript: localPath("scan.sh")
     readonly property string pingScript: localPath("ping.sh")
     readonly property string connectScript: localPath("connect.sh")
-    readonly property string askpassScript: localPath("askpass.sh")
     readonly property string logPath: (Quickshell.env("XDG_CACHE_HOME") || ((Quickshell.env("HOME") || "/tmp") + "/.cache")) + "/omarchy-ssh-lan/scan.log"
     readonly property color foreground: bar ? bar.foreground : Color.foreground
     readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
@@ -114,7 +111,6 @@ Panel {
             hostNameField.text = hostName(host)
             hostUserField.text = hostUser(host)
             hostPortField.text = String(hostPort(host))
-            hostPasswordField.text = ""
             hostNameField.forceActiveFocus()
         })
     }
@@ -122,11 +118,10 @@ Panel {
     function closeHostEditor() {
         hostEditorOpen = false
         editingHost = ""
-        hostPasswordField.text = ""
     }
 
     function saveHostEditor() {
-        if (savingHost !== "" || editingHost === "") return
+        if (editingHost === "") return
         var user = hostUserField.text.trim() || root.defaultUser
         var name = hostNameField.text.trim() || editingHost
         var port = parseInt(hostPortField.text.trim() || "22")
@@ -140,22 +135,8 @@ Panel {
         }
         var values = { name: name, user: user, port: port }
         persistHostSettings(editingHost, values)
-        if (hostPasswordField.text !== "") {
-            savingHost = editingHost
-            pendingHostSettings = values
-            statusText = "Saving the password in the desktop keyring…"
-            storeProc.command = [
-                "secret-tool", "store", "--label=Omarchy SSH LAN password",
-                "service", "omarchy-ssh-lan",
-                "host", editingHost,
-                "user", user,
-                "port", String(port)
-            ]
-            storeProc.running = true
-        } else {
-            statusText = "Saved settings for " + name + "."
-            closeHostEditor()
-        }
+        statusText = "Saved settings for " + name + "."
+        closeHostEditor()
     }
 
     function persistSettings(values) {
@@ -263,7 +244,7 @@ Panel {
     // full scan; otherwise it pings the remembered addresses to see which are
     // still alive.
     function checkKnownHosts() {
-        if (root.scanProc.running || root.pingProc.running) return
+        if (scanProc.running || pingProc.running) return
         var known = root.settings && root.settings.knownHosts
         var hosts = []
         if (known && typeof known === "object") {
@@ -331,11 +312,10 @@ Panel {
         }
         selectServer(server, serverIndex(server.host))
         // All values are separate exec arguments. connect.sh validates them
-        // again before it invokes ssh, and the secret is read only in the
-        // terminal process through SSH_ASKPASS.
+        // again before it invokes ssh.
         Quickshell.execDetached([
             "omarchy-launch-terminal", "bash", root.connectScript,
-            user, server.host, String(hostPort(server.host)), root.askpassScript
+            user, server.host, String(hostPort(server.host))
         ])
         root.close()
     }
@@ -401,24 +381,6 @@ Panel {
         }
     }
 
-    Process {
-        id: storeProc
-        stdinEnabled: true
-        onStarted: storeProc.write(hostPasswordField.text + "\n")
-        onExited: function(exitCode) {
-            var host = root.savingHost
-            root.savingHost = ""
-            root.pendingHostSettings = null
-            hostPasswordField.text = ""
-            if (exitCode === 0) {
-                root.statusText = "Saved settings and password for " + root.hostName(host) + "."
-                root.closeHostEditor()
-            } else {
-                root.statusText = "Settings saved, but the password could not be stored in Secret Service."
-            }
-        }
-    }
-
     KeyboardPanel {
         id: panel
         anchorItem: root.anchorItem
@@ -433,6 +395,10 @@ Panel {
         PanelKeyCatcher {
             id: keyCatcher
             anchors.fill: parent
+            // Keep keys out of the panel dispatcher while an inline editor
+            // (network ranges or host settings) is focused, so typing works
+            // normally instead of Enter/Space/arrows being hijacked.
+            blocked: root.settingsOpen || root.hostEditorOpen
             onMoveRequested: function(dx, dy) {
                 if (dx !== 0) return
                 if (!root.cursorActive) root.cursorActive = true
@@ -735,29 +701,18 @@ Panel {
                             inputMethodHints: Qt.ImhDigitsOnly
                         }
                     }
-                    TextField {
-                        id: hostPasswordField
-                        width: parent.width
-                        foreground: root.foreground
-                        font.family: root.fontFamily
-                        placeholderText: "Password (leave blank to keep saved password)"
-                        password: true
-                        enabled: root.savingHost === ""
-                    }
                     Row {
                         spacing: Style.space(8)
                         Button {
-                            text: root.savingHost !== "" ? "Saving…" : "Save host"
+                            text: "Save host"
                             foreground: root.foreground
                             fontFamily: root.fontFamily
-                            enabled: root.savingHost === ""
                             onClicked: root.saveHostEditor()
                         }
                         Button {
                             text: "Cancel"
                             foreground: root.foreground
                             fontFamily: root.fontFamily
-                            enabled: root.savingHost === ""
                             onClicked: root.closeHostEditor()
                         }
                     }

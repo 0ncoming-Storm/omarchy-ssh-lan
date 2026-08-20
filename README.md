@@ -12,7 +12,7 @@ interfaces, or Tailscale state automatically.
 - Press **Rescan** (or `r`) for a full nmap scan of your ranges at any time
 - Scan only TCP port 22 in those ranges
 - Reverse-DNS hostname autofill with editable per-host display names
-- Per-host username, SSH port, and keyring-backed password settings
+- Per-host username and SSH port settings
 - Explicit **Connect** buttons that open a new Omarchy terminal
 - First-connection `ssh-copy-id` offer
 - Timestamped scan log (including host checks) with an in-panel viewer
@@ -26,8 +26,7 @@ omarchy plugin add https://github.com/0ncoming-Storm/omarchy-ssh-lan.git --enabl
 Or install manually into `~/.config/omarchy/plugins/linuxinthebox.ssh-lan/`,
 then run `omarchy plugin validate` and `omarchy-shell shell rescanPlugins`.
 
-The plugin requires OpenSSH, bash, and nmap. Password saving requires
-`secret-tool` from `libsecret`.
+The plugin requires OpenSSH, bash, and nmap.
 
 ## Removal
 
@@ -36,7 +35,7 @@ omarchy plugin remove linuxinthebox.ssh-lan
 ```
 
 The command disables the plugin before removing it. User settings in
-`shell.json` and keyring entries are not deleted automatically.
+`shell.json` are not deleted automatically.
 
 ## Configuration
 
@@ -65,8 +64,7 @@ check; use **Rescan** for them.
 ## Logs and security
 
 Scan and host-check logs are stored at `~/.cache/omarchy-ssh-lan/scan.log`,
-with the latest 200 lines available in the panel. Passwords are stored through Secret Service and
-are never written to plugin settings, command-line arguments, or scan logs.
+with the latest 200 lines available in the panel.
 
 Scan only networks you own or are authorized to test. Plugins run unsandboxed
 inside the long-lived Omarchy shell process.
