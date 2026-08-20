@@ -28,6 +28,7 @@ Panel {
     property string editingHost: ""
     property bool settingsOpen: false
     property bool logsOpen: false
+    property bool hasScanned: false
     property string logText: ""
     property string configuredRanges: setting("networks", "")
 
@@ -178,6 +179,15 @@ Panel {
         logProc.running = true
     }
 
+    // Newest lines first: reverse the tail output so the most recent entries
+    // sit at the top of the log viewer.
+    function reverseLog(raw) {
+        var lines = String(raw || "").split("\n")
+        while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop()
+        lines.reverse()
+        return lines.length > 0 ? lines.join("\n") : "No scan log yet."
+    }
+
     function toggleLog() {
         logsOpen = !logsOpen
         if (logsOpen) loadLog()
@@ -215,6 +225,7 @@ Panel {
         servers = next
         rememberHosts(next)
         lastCheck = "scan"
+        hasScanned = true
         if (next.length === 0) statusText = "No SSH servers found."
         else statusText = next.length + " SSH server" + (next.length === 1 ? "" : "s") + " found."
     }
@@ -254,6 +265,9 @@ Panel {
             scan()
             return
         }
+        // Known hosts only ever come from a scan, so treat them as proof one
+        // has happened.
+        hasScanned = true
         checking = true
         scanning = true
         lastCheck = "ping"
@@ -377,7 +391,7 @@ Panel {
         id: logProc
         stdout: StdioCollector {
             waitForEnd: true
-            onStreamFinished: root.logText = String(text || "No scan log yet.")
+            onStreamFinished: root.logText = root.reverseLog(text)
         }
     }
 
@@ -527,27 +541,36 @@ Panel {
                     Text {
                         visible: root.logsOpen
                         width: parent.width
-                        text: root.logPath
+                        text: root.logPath + " · newest first"
                         color: Qt.darker(root.foreground, 1.65)
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
                         elide: Text.ElideMiddle
                     }
-                    TextArea {
+                    ScrollView {
+                        id: logScroll
                         visible: root.logsOpen
                         width: parent.width
                         height: Style.space(170)
-                        text: root.logText
-                        readOnly: true
-                        color: root.foreground
-                        font.family: "monospace"
-                        font.pixelSize: Style.font.caption
-                        wrapMode: TextEdit.NoWrap
-                        selectByMouse: true
+                        clip: true
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        ScrollBar.vertical.policy: ScrollBar.AsNeeded
                         background: BorderSurface {
                             color: "transparent"
                             borderSpec: Border.controlSpec("normal", root.foreground, Color.accent)
                             radius: Style.cornerRadius
+                        }
+                        Text {
+                            width: logScroll.availableWidth
+                            text: root.logText
+                            color: root.foreground
+                            font.family: "monospace"
+                            font.pixelSize: Style.font.caption
+                            wrapMode: Text.Wrap
+                            leftPadding: Style.space(6)
+                            rightPadding: Style.space(6)
+                            topPadding: Style.space(4)
+                            bottomPadding: Style.space(4)
                         }
                     }
                 }
@@ -556,7 +579,7 @@ Panel {
                     width: parent.width
                     spacing: Style.space(8)
                     Button {
-                        text: root.scanning ? (root.checking ? "Checking…" : "Scanning…") : "Rescan"
+                        text: root.scanning ? (root.checking ? "Checking…" : "Scanning…") : (root.hasScanned ? "Rescan" : "Scan")
                         foreground: root.foreground
                         fontFamily: root.fontFamily
                         enabled: !root.scanning
