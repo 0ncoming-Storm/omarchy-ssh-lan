@@ -18,7 +18,8 @@
     "defaultSection": "right",
     "defaults": {
       "networks": "",
-      "hosts": {}
+      "hosts": {},
+      "knownHosts": {}
     }
   }
 }

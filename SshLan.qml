@@ -19,8 +19,11 @@ Panel {
     property int selectedIndex: -1
     property var servers: []
     property bool scanning: false
+    property bool checking: false
+    property string lastCheck: "scan"
     property bool cursorActive: false
     property string scanError: ""
+    property string pingError: ""
     property string savingHost: ""
     property var pendingHostSettings: null
     property bool hostEditorOpen: false
@@ -38,6 +41,7 @@ Panel {
     }
 
     readonly property string scanScript: localPath("scan.sh")
+    readonly property string pingScript: localPath("ping.sh")
     readonly property string connectScript: localPath("connect.sh")
     readonly property string askpassScript: localPath("askpass.sh")
     readonly property string logPath: (Quickshell.env("XDG_CACHE_HOME") || ((Quickshell.env("HOME") || "/tmp") + "/.cache")) + "/omarchy-ssh-lan/scan.log"
@@ -199,7 +203,7 @@ Panel {
     }
 
     function scan() {
-        if (scanProc.running) return
+        if (scanProc.running || pingProc.running) return
         var ranges = rangeTokens(configuredRanges)
         if (ranges.length === 0) {
             statusText = "No ranges configured. Open the gear and add one or more IPv4 CIDRs."
@@ -228,8 +232,84 @@ Panel {
         }
         next.sort(function(a, b) { return a.host.localeCompare(b.host, undefined, { numeric: true }) })
         servers = next
+        rememberHosts(next)
+        lastCheck = "scan"
         if (next.length === 0) statusText = "No SSH servers found."
         else statusText = next.length + " SSH server" + (next.length === 1 ? "" : "s") + " found."
+    }
+
+    // Persist every discovered host so later panel openings only need a quick
+    // ping instead of a full nmap scan. Names and routes are kept as the last
+    // known values; hosts that disappear are left in place.
+    function rememberHosts(next) {
+        var known = {}
+        var existingKnown = root.settings && root.settings.knownHosts
+        if (existingKnown && typeof existingKnown === "object") {
+            for (var host in existingKnown) known[host] = existingKnown[host]
+        }
+        var changed = false
+        for (var i = 0; i < next.length; i++) {
+            var entry = { route: next[i].route, name: next[i].name || "" }
+            var prev = known[next[i].host]
+            if (!prev || prev.route !== entry.route || (prev.name || "") !== entry.name) {
+                known[next[i].host] = entry
+                changed = true
+            }
+        }
+        if (changed) persistSettings({ knownHosts: known })
+    }
+
+    // Called when the panel opens. With no known hosts yet this falls back to a
+    // full scan; otherwise it pings the remembered addresses to see which are
+    // still alive.
+    function checkKnownHosts() {
+        if (root.scanProc.running || root.pingProc.running) return
+        var known = root.settings && root.settings.knownHosts
+        var hosts = []
+        if (known && typeof known === "object") {
+            for (var host in known) hosts.push(host)
+        }
+        if (hosts.length === 0) {
+            scan()
+            return
+        }
+        checking = true
+        scanning = true
+        lastCheck = "ping"
+        pingError = ""
+        statusText = "Checking " + hosts.length + " known host" + (hosts.length === 1 ? "" : "s") + "…"
+        servers = []
+        selectedHost = ""
+        selectedIndex = -1
+        pingProc.command = ["bash", root.pingScript].concat(hosts)
+        pingProc.running = true
+    }
+
+    function parsePing(raw) {
+        var alive = {}
+        var lines = String(raw || "").split("\n")
+        for (var i = 0; i < lines.length; i++) {
+            var host = lines[i].trim()
+            if (host !== "") alive[host] = true
+        }
+        var known = root.settings && root.settings.knownHosts
+        var total = 0
+        var next = []
+        if (known && typeof known === "object") {
+            for (var knownHost in known) {
+                total++
+                if (!alive[knownHost]) continue
+                var entry = known[knownHost] || {}
+                next.push({ host: knownHost, route: entry.route || "manual", name: entry.name || "" })
+            }
+        }
+        next.sort(function(a, b) { return a.host.localeCompare(b.host, undefined, { numeric: true }) })
+        servers = next
+        if (next.length === 0) {
+            statusText = "None of the " + total + " known host" + (total === 1 ? "" : "s") + " answered a ping."
+        } else {
+            statusText = next.length + " of " + total + " known host" + (total === 1 ? "" : "s") + " online."
+        }
     }
 
     function selectServer(server, index) {
@@ -268,7 +348,7 @@ Panel {
     }
 
     onOpenedChanged: if (opened) {
-        scan()
+        checkKnownHosts()
         Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
     }
 
@@ -288,6 +368,27 @@ Panel {
                 root.statusText = root.scanError !== ""
                     ? root.scanError
                     : "Scan failed. Check that bash and nmap are available."
+            if (root.logsOpen) Qt.callLater(root.loadLog)
+        }
+    }
+
+    Process {
+        id: pingProc
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root.parsePing(text)
+        }
+        stderr: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root.pingError = String(text || "").trim()
+        }
+        onExited: function(exitCode) {
+            root.scanning = false
+            root.checking = false
+            if (exitCode !== 0 && root.servers.length === 0)
+                root.statusText = root.pingError !== ""
+                    ? root.pingError
+                    : "Host check failed. Check that bash and ping are available."
             if (root.logsOpen) Qt.callLater(root.loadLog)
         }
     }
@@ -369,7 +470,9 @@ Panel {
                 PanelHero {
                     width: parent.width
                     title: "SSH LAN"
-                    meta: root.scanning ? "NMAP SCAN IN PROGRESS" : "MANUAL NETWORK RANGES"
+                    meta: root.scanning
+                        ? (root.checking ? "CHECKING KNOWN HOSTS" : "NMAP SCAN IN PROGRESS")
+                        : "MANUAL NETWORK RANGES"
                     foreground: root.foreground
                     fontFamily: root.fontFamily
                     iconComponent: Component {
@@ -487,7 +590,7 @@ Panel {
                     width: parent.width
                     spacing: Style.space(8)
                     Button {
-                        text: root.scanning ? "Scanning…" : "Rescan"
+                        text: root.scanning ? (root.checking ? "Checking…" : "Scanning…") : "Rescan"
                         foreground: root.foreground
                         fontFamily: root.fontFamily
                         enabled: !root.scanning
@@ -526,7 +629,9 @@ Panel {
                     width: parent.width
                     text: root.configuredRanges === ""
                         ? "Configure ranges with the gear before scanning."
-                        : "No port 22 hosts found in the configured ranges. Press Rescan or r."
+                        : root.lastCheck === "ping"
+                            ? "None of the known hosts answered a ping. Press Rescan or r to run a full scan."
+                            : "No port 22 hosts found in the configured ranges. Press Rescan or r."
                     color: Qt.darker(root.foreground, 1.45)
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
@@ -660,7 +765,7 @@ Panel {
 
                 Text {
                     width: parent.width
-                    text: "Only saved manual ranges are scanned. First-time hosts offer ssh-copy-id after the first successful session."
+                    text: "Discovered hosts are remembered and only checked with a quick ping when you open the panel. Press Rescan or r for a full nmap scan of your ranges."
                     color: Qt.darker(root.foreground, 1.65)
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption

@@ -7,12 +7,15 @@ interfaces, or Tailscale state automatically.
 ## Features
 
 - Configure one or more IPv4 ranges from the gear button
+- Discovered hosts are remembered after each scan
+- Opening the panel only pings remembered hosts to see which are still alive, instead of re-scanning the network
+- Press **Rescan** (or `r`) for a full nmap scan of your ranges at any time
 - Scan only TCP port 22 in those ranges
 - Reverse-DNS hostname autofill with editable per-host display names
 - Per-host username, SSH port, and keyring-backed password settings
 - Explicit **Connect** buttons that open a new Omarchy terminal
 - First-connection `ssh-copy-id` offer
-- Timestamped scan log with an in-panel viewer
+- Timestamped scan log (including host checks) with an in-panel viewer
 
 ## Install
 
@@ -51,10 +54,18 @@ scanning them. Host settings are edited with the gear beside each discovered
 host. The username defaults to the current Linux user and the port defaults to
 22. Reverse-DNS names are used as initial display names when available.
 
+On the first open (when nothing has been discovered yet) the panel runs a full
+nmap scan. After that, hosts found by a scan are stored in the plugin settings
+under `knownHosts`, and opening the panel only pings those remembered addresses
+(as a parallel, one-second probe each) to show which are alive. Hosts that stop
+answering disappear from the list until they come back or you run a full
+rescan. Note that hosts which block ICMP pings will not appear from the ping
+check; use **Rescan** for them.
+
 ## Logs and security
 
-Scan logs are stored at `~/.cache/omarchy-ssh-lan/scan.log`, with the latest 200
-lines available in the panel. Passwords are stored through Secret Service and
+Scan and host-check logs are stored at `~/.cache/omarchy-ssh-lan/scan.log`,
+with the latest 200 lines available in the panel. Passwords are stored through Secret Service and
 are never written to plugin settings, command-line arguments, or scan logs.
 
 Scan only networks you own or are authorized to test. Plugins run unsandboxed
