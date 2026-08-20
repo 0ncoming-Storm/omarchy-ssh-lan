@@ -17,7 +17,7 @@ interfaces, or Tailscale state automatically.
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/YOUR_ACCOUNT/omarchy-ssh-lan.git --enable
+omarchy plugin add https://github.com/0ncoming-Storm/omarchy-ssh-lan.git --enable
 ```
 
 Or install manually into `~/.config/omarchy/plugins/linuxinthebox.ssh-lan/`,
