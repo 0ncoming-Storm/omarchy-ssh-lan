@@ -36,7 +36,7 @@ omarchy plugin add https://github.com/0ncoming-Storm/omarchy-ssh-lan.git --enabl
 ```
 
 Manual install: clone the repository into
-`~/.config/omarchy/plugins/omarchy-ssh-lan/`, then run `omarchy plugin validate`
+`~/.config/omarchy/plugins/linuxinthebox.ssh-lan/`, then run `omarchy plugin validate`
 and `omarchy-shell shell rescanPlugins`.
 
 ## Quick start
@@ -89,7 +89,7 @@ Right-clicking the bar icon also triggers a full rescan.
 ## Removing
 
 ```bash
-omarchy plugin remove 0ncoming-Storm.ssh-lan
+omarchy plugin remove linuxinthebox.ssh-lan
 ```
 
 The command disables the plugin before removing it. Your settings in
