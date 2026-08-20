@@ -1,25 +1,19 @@
 {
   "schemaVersion": 1,
-  "id": "0ncoming-Storm.ssh-lan",
+  "id": "linuxinthebox.ssh-lan",
   "name": "SSH LAN browser",
   "version": "1.0.0",
   "author": "0ncoming-Storm",
+  "license": "MIT",
   "description": "Discover SSH servers in manually configured IPv4 ranges and open them in a terminal.",
-  "kinds": ["panel", "bar-widget"],
+  "kinds": ["bar-widget"],
   "entryPoints": {
-    "panel": "SshLan.qml",
     "barWidget": "BarWidget.qml"
   },
-  "keepLoaded": true,
   "barWidget": {
     "displayName": "SSH LAN",
     "category": "Network",
     "allowMultiple": false,
-    "defaultSection": "right",
-    "defaults": {
-      "networks": "",
-      "hosts": {},
-      "knownHosts": {}
-    }
+    "defaultSection": "right"
   }
 }
