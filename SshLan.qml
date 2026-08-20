@@ -542,6 +542,7 @@ Panel {
                         visible: root.logsOpen
                         width: parent.width
                         text: root.logPath + " · newest first"
+                        textFormat: Text.PlainText
                         color: Qt.darker(root.foreground, 1.65)
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -563,6 +564,7 @@ Panel {
                         Text {
                             width: logScroll.availableWidth
                             text: root.logText
+                            textFormat: Text.PlainText
                             color: root.foreground
                             font.family: "monospace"
                             font.pixelSize: Style.font.caption
@@ -588,6 +590,7 @@ Panel {
                     Text {
                         Layout.fillWidth: true
                         text: root.defaultUser ? "Default user: " + root.defaultUser + " · port 22" : "Configure a username per host"
+                        textFormat: Text.PlainText
                         color: Qt.darker(root.foreground, 1.55)
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.bodySmall
@@ -599,6 +602,7 @@ Panel {
                     visible: root.statusText !== ""
                     width: parent.width
                     text: root.statusText
+                    textFormat: Text.PlainText
                     color: Qt.darker(root.foreground, 1.45)
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.bodySmall
@@ -652,6 +656,7 @@ Panel {
                                     spacing: 0
                                     Text {
                                         text: root.hostName(modelData.host)
+                                        textFormat: Text.PlainText
                                         color: root.foreground
                                         font.family: root.fontFamily
                                         font.pixelSize: Style.font.body
@@ -660,6 +665,7 @@ Panel {
                                     }
                                     Text {
                                         text: root.hostUser(modelData.host) + "@" + modelData.host + ":" + root.hostPort(modelData.host)
+                                        textFormat: Text.PlainText
                                         color: Qt.darker(root.foreground, 1.55)
                                         font.family: root.fontFamily
                                         font.pixelSize: Style.font.caption
