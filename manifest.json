@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "0ncomingStorm.ssh-lan",
+  "id": "0ncoming-Storm.ssh-lan",
   "name": "SSH LAN browser",
   "version": "1.0.0",
-  "author": "0ncomingStorm",
+  "author": "0ncoming-Storm",
   "description": "Discover SSH servers in manually configured IPv4 ranges and open them in a terminal.",
   "kinds": ["panel", "bar-widget"],
   "entryPoints": {
